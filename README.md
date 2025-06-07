@@ -1,5 +1,9 @@
 # ⏱️ TimeTracker - Sistema de Controle de Tempo
 
+[![GitHub Stars](https://img.shields.io/github/stars/Mablemb/time-tracker?style=social)](https://github.com/Mablemb/time-tracker)
+[![GitHub Issues](https://img.shields.io/github/issues/Mablemb/time-tracker)](https://github.com/Mablemb/time-tracker/issues)
+[![License](https://img.shields.io/github/license/Mablemb/time-tracker)](https://github.com/Mablemb/time-tracker/blob/main/LICENSE)
+
 Sistema Django para controle de tempo dedicado a projetos, funcionando como um "ponto eletrônico" pessoal para marcar início e fim de sessões de trabalho.
 
 ## 🚀 Início Rápido
@@ -14,8 +18,8 @@ chmod +x start.sh
 ### Método 2: Instalação Manual
 ```bash
 # Clone o repositório
-git clone <url-do-repositorio>
-cd dedicatedTime
+git clone https://github.com/Mablemb/time-tracker.git
+cd time-tracker
 
 # Crie e ative o ambiente virtual
 python3 -m venv venv
