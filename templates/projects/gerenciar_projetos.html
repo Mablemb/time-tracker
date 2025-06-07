@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Projetos - TimeTracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-folder"></i> Gerenciar Projetos</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#novoProjetoModal">
+        <i class="bi bi-plus-circle"></i> Novo Projeto
+    </button>
+</div>
+
+<div class="row">
+    {% for projeto in projetos %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card projeto-card" style="border-left: 4px solid {{ projeto.cor }};">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title mb-0">{{ projeto.nome }}</h6>
+                    {% if projeto.ativo %}
+                        <span class="badge bg-success">Ativo</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inativo</span>
+                    {% endif %}
+                </div>
+                
+                {% if projeto.descricao %}
+                <p class="card-text text-muted small mb-2">{{ projeto.descricao|truncatewords:20 }}</p>
+                {% endif %}
+                
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <small class="text-muted d-block">Hoje</small>
+                        <strong class="small">{{ projeto.tempo_total_hoje|default:"00:00" }}</strong>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block">Semana</small>
+                        <strong class="small">{{ projeto.tempo_total_semana|default:"00:00" }}</strong>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block">Mês</small>
+                        <strong class="small">{{ projeto.tempo_total_mes|default:"00:00" }}</strong>
+                    </div>
+                </div>
+                
+                <div class="text-muted small mb-2">
+                    <i class="bi bi-calendar-plus"></i> Criado em {{ projeto.criado_em|date:"d/m/Y" }}
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarProjeto({{ projeto.id }})">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            {% if projeto.ativo %}
+                            <li><a class="dropdown-item" href="#" onclick="toggleStatus({{ projeto.id }}, false)">
+                                <i class="bi bi-pause-circle"></i> Desativar
+                            </a></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="#" onclick="toggleStatus({{ projeto.id }}, true)">
+                                <i class="bi bi-play-circle"></i> Ativar
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="excluirProjeto({{ projeto.id }})">
+                                <i class="bi bi-trash"></i> Excluir
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i>
+            Nenhum projeto cadastrado. Crie seu primeiro projeto para começar!
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal Novo Projeto -->
+<div class="modal fade" id="novoProjetoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Projeto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome do Projeto *</label>
+                        <input type="text" class="form-control" id="nome" name="nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricao" name="descricao" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cor" class="form-label">Cor do Projeto</label>
+                        <div class="d-flex align-items-center">
+                            <input type="color" class="form-control form-control-color me-2" id="cor" name="cor" value="#007bff">
+                            <span class="text-muted small">Escolha uma cor para identificar o projeto</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Criar Projeto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Função para obter o CSRF token
+    function getCSRFToken() {
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function editarProjeto(id) {
+        // TODO: Implementar edição de projeto
+        alert('Funcionalidade de edição será implementada em breve!');
+    }
+
+    function toggleStatus(id, ativo) {
+        fetch(`/projetos/toggle/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ativo: ativo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar mensagem de sucesso
+                showMessage(data.message, 'success');
+                // Recarregar a página para atualizar o status
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            showMessage('Erro ao alterar status do projeto', 'error');
+        });
+    }
+
+    function excluirProjeto(id) {
+        if (confirm('Tem certeza que deseja excluir este projeto? Esta ação não pode ser desfeita.\n\nTodas as sessões relacionadas a este projeto também serão removidas.')) {
+            fetch(`/projetos/excluir/${id}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    // Recarregar a página para remover o projeto da lista
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                showMessage('Erro ao excluir projeto', 'error');
+            });
+        }
+    }
+
+    function showMessage(message, type) {
+        // Cria um alert Bootstrap temporário
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show mt-3" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        // Adiciona no topo da página
+        const container = document.querySelector('.container');
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        // Remove automaticamente após 5 segundos
+        setTimeout(() => {
+            const alert = container.querySelector('.alert');
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}

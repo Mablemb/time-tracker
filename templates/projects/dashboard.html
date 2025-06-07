@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - TimeTracker{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-house"></i> Dashboard</h2>
+            <div class="text-muted">
+                <i class="bi bi-calendar-date"></i> {{ "now"|date:"d/m/Y" }}
+            </div>
+        </div>
+
+        <!-- Controle de Sessão Ativa -->
+        {% if sessao_ativa %}
+        <div class="alert alert-success border-2 border-success mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="alert-heading mb-2">
+                        <i class="bi bi-play-circle-fill"></i> Sessão Ativa
+                    </h5>
+                    <p class="mb-0">
+                        <strong>{{ sessao_ativa.projeto.nome }}</strong><br>
+                        <small class="text-muted">
+                            Iniciado às {{ sessao_ativa.inicio|date:"H:i" }} 
+                            ({{ sessao_ativa.duracao_formatada }})
+                        </small>
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-danger" onclick="finalizarSessao()">
+                        <i class="bi bi-stop-circle"></i> Finalizar
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Grid de Projetos -->
+        <div class="row">
+            {% for projeto in projetos %}
+            <div class="col-md-6 mb-3">
+                <div class="card projeto-card h-100" style="border-left: 4px solid {{ projeto.cor }};">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">{{ projeto.nome }}</h5>
+                            <span class="badge" style="background-color: {{ projeto.cor }};">
+                                {{ projeto.tempo_total_hoje|default:"00:00" }}
+                            </span>
+                        </div>
+                        
+                        {% if projeto.descricao %}
+                        <p class="card-text text-muted small">{{ projeto.descricao|truncatewords:15 }}</p>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">
+                                Hoje: {{ projeto.tempo_total_hoje|default:"00:00" }}
+                            </small>
+                            
+                            {% if sessao_ativa and sessao_ativa.projeto.id == projeto.id %}
+                            <button class="btn btn-secondary btn-sm" disabled>
+                                <i class="bi bi-play-circle"></i> Em andamento
+                            </button>
+                            {% elif sessao_ativa %}
+                            <button class="btn btn-outline-primary btn-sm" disabled>
+                                <i class="bi bi-play-circle"></i> Iniciar
+                            </button>
+                            {% else %}
+                            <button class="btn btn-primary btn-sm" onclick="iniciarSessao({{ projeto.id }})">
+                                <i class="bi bi-play-circle"></i> Iniciar
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i>
+                    Nenhum projeto encontrado. 
+                    <a href="{% url 'gerenciar_projetos' %}" class="alert-link">Criar primeiro projeto</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Sidebar com Estatísticas -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-bar-chart"></i> Resumo de Hoje</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <h4 class="text-primary">{{ tempo_total_hoje|default:"00:00" }}</h4>
+                    <small class="text-muted">Total trabalhado hoje</small>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <h6>Por Projeto:</h6>
+                    {% for projeto in projetos %}
+                        {% if projeto.tempo_total_hoje.total_seconds > 0 %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="small">
+                                <span class="badge me-1" style="background-color: {{ projeto.cor }};">&nbsp;</span>
+                                {{ projeto.nome|truncatechars:20 }}
+                            </span>
+                            <span class="small text-muted">{{ projeto.tempo_total_hoje }}</span>
+                        </div>
+                        {% endif %}
+                    {% empty %}
+                    <p class="text-muted small">Nenhum tempo registrado hoje</p>
+                    {% endfor %}
+                </div>
+                
+                <hr>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'relatorios' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-graph-up"></i> Ver Relatórios
+                    </a>
+                    <a href="{% url 'historico' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-clock-history"></i> Ver Histórico
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para finalizar sessão -->
+<div class="modal fade" id="finalizarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Finalizar Sessão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="descricao" class="form-label">Descrição do trabalho (opcional):</label>
+                    <textarea class="form-control" id="descricao" rows="3" placeholder="O que foi realizado nesta sessão?"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarFinalizacao()">
+                    <i class="bi bi-stop-circle"></i> Finalizar Sessão
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Função para obter o CSRF token
+    function getCSRFToken() {
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function iniciarSessao(projetoId) {
+        fetch(`/iniciar/${projetoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao iniciar sessão');
+        });
+    }
+
+    function finalizarSessao() {
+        const modal = new bootstrap.Modal(document.getElementById('finalizarModal'));
+        modal.show();
+    }
+
+    function confirmarFinalizacao() {
+        const descricao = document.getElementById('descricao').value;
+        
+        fetch('/finalizar/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                descricao: descricao
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao finalizar sessão');
+        });
+    }
+</script>
+{% endblock %}
