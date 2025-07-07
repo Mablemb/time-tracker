@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.contrib import messages
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
@@ -71,19 +72,78 @@ def finalizar_sessao(request):
                 'message': 'Não há sessão ativa para finalizar.'
             })
         
-        # Pega descrição se fornecida
+        # Pega dados do request
         data = json.loads(request.body) if request.body else {}
         descricao = data.get('descricao', '')
+        horario_fim_manual = data.get('horario_fim_manual', None)
         
-        # Finaliza sessão
-        sessao_ativa.fim = timezone.now()
+        # Determinar horário de fim
+        if horario_fim_manual:
+            try:
+                # Converter string ISO para datetime
+                fim_datetime = parse_datetime(horario_fim_manual)
+                
+                if not fim_datetime:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Formato de data/hora inválido.'
+                    })
+                
+                # Validar se não é no futuro
+                if fim_datetime > timezone.now():
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'O horário de fim não pode ser no futuro.'
+                    })
+                
+                # Validar se não é anterior ao início da sessão
+                if fim_datetime < sessao_ativa.inicio:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'O horário de fim não pode ser anterior ao início da sessão.'
+                    })
+                
+                # Usar horário manual
+                sessao_ativa.fim = fim_datetime
+                horario_usado = "manual"
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erro ao processar horário manual: {str(e)}'
+                })
+        else:
+            # Usar horário atual
+            sessao_ativa.fim = timezone.now()
+            horario_usado = "atual"
+        
+        # Salvar descrição e finalizar
         sessao_ativa.descricao = descricao
         sessao_ativa.save()
-        
+
+        # Prevenção de entradas/saídas acidentais: ignorar sessões com menos de 5 minutos
+        duracao = sessao_ativa.duracao()
+        if duracao.total_seconds() < 300:
+            # Excluir a sessão curta
+            sessao_ativa.delete()
+            return JsonResponse({
+                'success': False,
+                'message': 'Sessão descartada: duração inferior a 5 minutos. Certifique-se de não registrar entradas/saídas acidentais.'
+            })
+
+        # Preparar mensagem de resposta
+        duracao_formatada = sessao_ativa.duracao_formatada()
+        if horario_usado == "manual":
+            fim_formatado = sessao_ativa.fim.strftime('%d/%m/%Y às %H:%M')
+            message = f'Sessão finalizada manualmente em {fim_formatado}. Duração: {duracao_formatada}'
+        else:
+            message = f'Sessão finalizada. Duração: {duracao_formatada}'
+
         return JsonResponse({
             'success': True,
-            'message': f'Sessão finalizada. Duração: {sessao_ativa.duracao_formatada()}',
-            'duracao': sessao_ativa.duracao_formatada()
+            'message': message,
+            'duracao': duracao_formatada,
+            'horario_usado': horario_usado
         })
     
     return JsonResponse({'success': False, 'message': 'Método não permitido'})

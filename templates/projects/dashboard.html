@@ -148,6 +148,33 @@
                     <label for="descricao" class="form-label">Descrição do trabalho (opcional):</label>
                     <textarea class="form-control" id="descricao" rows="3" placeholder="O que foi realizado nesta sessão?"></textarea>
                 </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="horarioManual" onchange="toggleHorarioManual()">
+                        <label class="form-check-label" for="horarioManual">
+                            <i class="bi bi-clock"></i> Inserir horário de fim manualmente
+                        </label>
+                    </div>
+                    <small class="text-muted">Use esta opção se esqueceu de finalizar no momento correto</small>
+                </div>
+                
+                <div class="mb-3" id="horarioManualDiv" style="display: none;">
+                    <label for="horaFim" class="form-label">Horário de fim:</label>
+                    <div class="row">
+                        <div class="col-6">
+                            <input type="time" class="form-control" id="horaFim" step="60">
+                            <small class="text-muted">Hora e minuto</small>
+                        </div>
+                        <div class="col-6">
+                            <input type="date" class="form-control" id="dataFim">
+                            <small class="text-muted">Data (opcional)</small>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-2" style="display: none;" id="alertHorario">
+                        <small><i class="bi bi-info-circle"></i> Se não especificar a data, será usado hoje.</small>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -192,11 +219,79 @@
 
     function finalizarSessao() {
         const modal = new bootstrap.Modal(document.getElementById('finalizarModal'));
+        
+        // Resetar campos do modal
+        document.getElementById('descricao').value = '';
+        document.getElementById('horarioManual').checked = false;
+        document.getElementById('horaFim').value = '';
+        document.getElementById('dataFim').value = '';
+        toggleHorarioManual();
+        
         modal.show();
+    }
+
+    function toggleHorarioManual() {
+        const checkbox = document.getElementById('horarioManual');
+        const div = document.getElementById('horarioManualDiv');
+        const alert = document.getElementById('alertHorario');
+        
+        if (checkbox.checked) {
+            div.style.display = 'block';
+            alert.style.display = 'block';
+            
+            // Definir data atual como padrão
+            const hoje = new Date().toISOString().split('T')[0];
+            document.getElementById('dataFim').value = hoje;
+        } else {
+            div.style.display = 'none';
+            alert.style.display = 'none';
+        }
     }
 
     function confirmarFinalizacao() {
         const descricao = document.getElementById('descricao').value;
+        const horarioManual = document.getElementById('horarioManual').checked;
+        let dataHoraFim = null;
+        
+        // Validar horário manual se selecionado
+        if (horarioManual) {
+            const horaFim = document.getElementById('horaFim').value;
+            const dataFim = document.getElementById('dataFim').value;
+            
+            if (!horaFim) {
+                alert('Por favor, insira o horário de fim.');
+                return;
+            }
+            
+            // Construir data/hora completa
+            const dataCompleta = dataFim || new Date().toISOString().split('T')[0];
+            dataHoraFim = `${dataCompleta}T${horaFim}:00`;
+            
+            // Validar se a data/hora não é no futuro
+            const agora = new Date();
+            const fimEscolhido = new Date(dataHoraFim);
+            
+            if (fimEscolhido > agora) {
+                alert('O horário de fim não pode ser no futuro.');
+                return;
+            }
+            
+            // Confirmar com o usuário se a data é muito antiga
+            const diffDias = (agora - fimEscolhido) / (1000 * 60 * 60 * 24);
+            if (diffDias > 7) {
+                if (!confirm(`O horário escolhido é de ${Math.floor(diffDias)} dias atrás. Tem certeza?`)) {
+                    return;
+                }
+            }
+        }
+        
+        const requestData = {
+            descricao: descricao
+        };
+        
+        if (dataHoraFim) {
+            requestData.horario_fim_manual = dataHoraFim;
+        }
         
         fetch('/finalizar/', {
             method: 'POST',
@@ -204,14 +299,22 @@
                 'X-CSRFToken': getCSRFToken(),
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                descricao: descricao
-            })
+            body: JSON.stringify(requestData)
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('finalizarModal'));
+                modal.hide();
+                
+                // Mostrar mensagem de sucesso
+                showAlert(data.message, 'success');
+                
+                // Recarregar após um tempo
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
             } else {
                 alert(data.message);
             }
@@ -220,6 +323,28 @@
             console.error('Erro:', error);
             alert('Erro ao finalizar sessão');
         });
+    }
+
+    function showAlert(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        // Remove automaticamente após 5 segundos
+        setTimeout(() => {
+            const alert = document.querySelector('.alert');
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
     }
 </script>
 {% endblock %}

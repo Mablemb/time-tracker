@@ -71,17 +71,28 @@ class SessaoTempo(models.Model):
         return f"{self.projeto.nome} - {self.inicio.strftime('%d/%m/%Y %H:%M')} (em andamento)"
     
     def duracao(self):
-        """Retorna a duração da sessão"""
+        """Retorna a duração da sessão, truncada para segundos (ignora microssegundos)"""
+        from datetime import timedelta
         if self.fim:
-            return self.fim - self.inicio
-        return timezone.now() - self.inicio
-    
+            delta = self.fim - self.inicio
+        else:
+            delta = timezone.now() - self.inicio
+        # Remove microssegundos
+        return timedelta(seconds=int(delta.total_seconds()))
+
     def duracao_formatada(self):
-        """Retorna a duração formatada como string"""
+        """Retorna a duração formatada como string, nunca mostra menos de 1 segundo"""
         duracao = self.duracao()
-        horas = int(duracao.total_seconds() // 3600)
-        minutos = int((duracao.total_seconds() % 3600) // 60)
-        return f"{horas:02d}:{minutos:02d}"
+        total_segundos = int(duracao.total_seconds())
+        if total_segundos < 1:
+            return "00:00:01"
+        horas = total_segundos // 3600
+        minutos = (total_segundos % 3600) // 60
+        segundos = total_segundos % 60
+        if horas > 0:
+            return f"{horas:02d}:{minutos:02d}:{segundos:02d}"
+        else:
+            return f"{minutos:02d}:{segundos:02d}"
     
     def em_andamento(self):
         """Verifica se a sessão está em andamento"""
