@@ -39,14 +39,18 @@ REM Executa migrações
 
 REM Tenta iniciar o servidor na porta 8000, se falhar tenta 8080
 set PORT=8000
-%PYTHON_CMD% manage.py runserver 8000
+start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8000"
+ping 127.0.0.1 -n 5 > nul
+REM Testa se a porta 8000 está respondendo
+powershell -Command "try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000).StatusCode } catch { exit 1 }"
 if %ERRORLEVEL% neq 0 (
     echo Porta 8000 ocupada ou erro. Tentando na porta 8080...
     set PORT=8080
-    %PYTHON_CMD% manage.py runserver 8080
+    start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8080"
+    ping 127.0.0.1 -n 5 > nul
 )
 
-REM Se chegou aqui, o servidor foi encerrado
+REM Abre o navegador na porta correta
 start http://127.0.0.1:%PORT%
-echo TimeTracker encerrado. Pressione qualquer tecla para sair.
+echo TimeTracker iniciado! O servidor está rodando em segundo plano.
 pause
