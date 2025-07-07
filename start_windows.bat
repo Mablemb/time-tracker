@@ -25,12 +25,20 @@ if exist requirements.txt (
 REM Executa migrações
 %PYTHON_CMD% manage.py migrate
 
-REM Inicia o servidor Django
-start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver"
+REM Tenta iniciar o servidor na porta 8000
+%PYTHON_CMD% manage.py runserver 8000 >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo Porta 8000 ocupada, tentando na porta 8080...
+    start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8080"
+    set PORT=8080
+) else (
+    start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8000"
+    set PORT=8000
+)
 
-REM Aguarda alguns segundos e abre o navegador
+REM Aguarda alguns segundos e abre o navegador na porta correta
 ping 127.0.0.1 -n 5 > nul
-start http://127.0.0.1:8000
+start http://127.0.0.1:%PORT%
 
 echo TimeTracker iniciado! Feche esta janela para encerrar.
 pause
