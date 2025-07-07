@@ -37,20 +37,16 @@ if exist requirements.txt (
 REM Executa migrações
 %PYTHON_CMD% manage.py migrate
 
-REM Tenta iniciar o servidor na porta 8000
-%PYTHON_CMD% manage.py runserver 8000 >nul 2>&1
+REM Tenta iniciar o servidor na porta 8000, se falhar tenta 8080
+set PORT=8000
+%PYTHON_CMD% manage.py runserver 8000
 if %ERRORLEVEL% neq 0 (
-    echo Porta 8000 ocupada, tentando na porta 8080...
-    start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8080"
+    echo Porta 8000 ocupada ou erro. Tentando na porta 8080...
     set PORT=8080
-) else (
-    start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver 8000"
-    set PORT=8000
+    %PYTHON_CMD% manage.py runserver 8080
 )
 
-REM Aguarda alguns segundos e abre o navegador na porta correta
-ping 127.0.0.1 -n 5 > nul
+REM Se chegou aqui, o servidor foi encerrado
 start http://127.0.0.1:%PORT%
-
-echo TimeTracker iniciado! Feche esta janela para encerrar.
+echo TimeTracker encerrado. Pressione qualquer tecla para sair.
 pause
