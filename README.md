@@ -8,7 +8,15 @@ Sistema Django para controle de tempo dedicado a projetos, funcionando como um "
 
 ## 🚀 Início Rápido
 
+
 ### Método 1: Script Automático (Recomendado)
+
+#### Usuários Windows
+1. Clique duas vezes no arquivo `start_windows.bat` (ícone do Windows) na pasta do projeto.
+2. O navegador será aberto automaticamente em http://127.0.0.1:8000.
+3. Para criar um atalho na área de trabalho, clique com o botão direito no `start_windows.bat` e escolha "Enviar para > Área de trabalho (criar atalho)".
+
+#### Usuários Linux/Mac
 ```bash
 # Torna o script executável e executa
 chmod +x start.sh
