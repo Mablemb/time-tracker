@@ -2,10 +2,16 @@
 REM Script de inicialização para Windows - TimeTracker
 
 REM Detecta se deve usar py ou python
-set PYTHON_CMD=python
-where python >nul 2>nul
+set PYTHON_CMD=py
+where py >nul 2>nul
 if errorlevel 1 (
-    set PYTHON_CMD=py
+    set PYTHON_CMD=python
+    where python >nul 2>nul
+    if errorlevel 1 (
+        echo Python não encontrado! Instale o Python 3 e adicione ao PATH.
+        pause
+        exit /b 1
+    )
 )
 
 REM Ativa o ambiente virtual ou cria se não existir
@@ -14,7 +20,13 @@ if not exist venv (
     %PYTHON_CMD% -m venv venv
 )
 
-call venv\Scripts\activate
+if not exist venv\Scripts\activate.bat (
+    echo Falha ao criar o ambiente virtual! Verifique se o Python está instalado corretamente.
+    pause
+    exit /b 1
+)
+
+call venv\Scripts\activate.bat
 
 REM Instala dependências
 if exist requirements.txt (
