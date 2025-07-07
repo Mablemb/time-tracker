@@ -23,6 +23,13 @@ O TimeTracker é um sistema web desenvolvido em Django que permite controlar o t
   - 📈 Status final do projeto
   - 📊 Estatísticas de desenvolvimento
 
+- **[CRUD_PROJETOS.md](CRUD_PROJETOS.md)** - Documentação completa do CRUD de projetos
+  - 🔧 Funcionalidades de Create, Read, Update, Delete
+  - 🛡️ Validações e segurança implementadas
+  - 📱 Interface do usuário e UX
+  - 🧪 Testes automatizados (24 casos)
+  - 📡 APIs disponíveis e exemplos
+
 - **[EXCLUSAO_PROJETOS.md](EXCLUSAO_PROJETOS.md)** - Implementação da funcionalidade de exclusão
   - 🗑️ Feature de exclusão de projetos
   - 🔒 Validações de segurança implementadas

@@ -45,8 +45,13 @@ python manage.py runserver
 - ⏲️ **Cronômetro em tempo real** para sessões ativas
 - 📈 **Relatórios** por dia/semana/mês
 - 📋 **Gerenciamento de projetos** completo
+  - ➕ **Criar** novos projetos
+  - ✏️ **Editar** projetos existentes (nome, descrição, cor, status)
+  - 🗑️ **Deletar** projetos com verificações de segurança
+  - 🔄 **Ativar/Desativar** projetos
 - 🗂️ **Histórico** de todas as sessões
 - 🎨 **Interface responsiva** com Bootstrap
+- 🔒 **Validações de segurança** e integridade de dados
 
 ## 🔧 Tecnologias
 
@@ -68,6 +73,9 @@ Para documentação completa, consulte a pasta [`docs/`](docs/):
 
 ✅ **Projeto Completo e Funcional**
 - Todas as funcionalidades principais implementadas
+- Sistema completo de CRUD para projetos
+- Funcionalidades de edição e exclusão implementadas
+- Validações de segurança e integridade
 - Interface responsiva e intuitiva
 - Testes realizados e aprovados
 - Documentação completa
@@ -86,6 +94,6 @@ Este projeto foi desenvolvido para fins educacionais e de aprendizado de Python/
 
 ---
 
-**Status**: ✅ Projeto completo e funcional  
-**Versão**: 1.0.0  
-**Data**: Junho 2025
+**Status**: ✅ Projeto completo e funcional com CRUD completo  
+**Versão**: 1.1.0  
+**Data**: Julho 2025

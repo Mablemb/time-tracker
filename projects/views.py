@@ -102,62 +102,78 @@ def relatorios(request):
             tempo = projeto.tempo_total_hoje()
         elif periodo == 'semana':
             tempo = projeto.tempo_total_semana()
-        else:  # mes
+        elif periodo == 'mes':
             tempo = projeto.tempo_total_mes()
+        else:
+            tempo = timedelta()
         
         if tempo.total_seconds() > 0:
-            horas = int(tempo.total_seconds() // 3600)
-            minutos = int((tempo.total_seconds() % 3600) // 60)
-            total_segundos += tempo.total_seconds()
             dados_relatorio.append({
                 'projeto': projeto,
                 'tempo': tempo,
-                'tempo_formatado': f"{horas:02d}:{minutos:02d}",
-                'horas_decimais': tempo.total_seconds() / 3600,
-                'segundos': tempo.total_seconds()
+                'tempo_formatado': str(tempo).split('.')[0],  # Remove microssegundos
+                'segundos': int(tempo.total_seconds())
             })
+            total_segundos += tempo.total_seconds()
     
-    # Ordena por tempo decrescente
-    dados_relatorio.sort(key=lambda x: x['tempo'], reverse=True)
+    # Calcular percentuais
+    for item in dados_relatorio:
+        if total_segundos > 0:
+            item['percentual'] = (item['segundos'] / total_segundos) * 100
+        else:
+            item['percentual'] = 0
     
-    # Calcula porcentagens e barras de progresso
-    if dados_relatorio and total_segundos > 0:
-        maior_tempo = dados_relatorio[0]['horas_decimais']
-        for item in dados_relatorio:
-            item['porcentagem'] = (item['segundos'] / total_segundos) * 100
-            item['largura_barra'] = (item['horas_decimais'] / maior_tempo) * 100 if maior_tempo > 0 else 0
-    
-    # Calcula totais
-    total_horas = int(total_segundos // 3600)
-    total_minutos = int((total_segundos % 3600) // 60)
-    total_formatado = f"{total_horas:02d}:{total_minutos:02d}"
-    
-    # Calcula média por projeto
-    media_horas = (total_segundos / 3600) / len(dados_relatorio) if dados_relatorio else 0
+    # Ordenar por tempo decrescente
+    dados_relatorio.sort(key=lambda x: x['segundos'], reverse=True)
     
     context = {
         'dados_relatorio': dados_relatorio,
         'periodo': periodo,
-        'periodo_nome': {
-            'dia': 'Hoje',
-            'semana': 'Esta Semana', 
-            'mes': 'Este Mês'
-        }.get(periodo, 'Hoje'),
-        'total_formatado': total_formatado,
-        'total_horas': total_horas,
-        'total_minutos': total_minutos,
-        'media_horas': media_horas,
-        'projetos_ativos': len(dados_relatorio)
+        'total_formatado': str(timedelta(seconds=total_segundos)).split('.')[0],
+        'tem_dados': len(dados_relatorio) > 0
     }
     return render(request, 'projects/relatorios.html', context)
 
 
 def historico(request):
     """View para exibir histórico de sessões"""
-    sessoes = SessaoTempo.objects.filter(fim__isnull=False).order_by('-inicio')[:50]
+    # Filtros
+    projeto_filtro = request.GET.get('projeto')
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    
+    # Query base
+    sessoes = SessaoTempo.objects.filter(fim__isnull=False).order_by('-inicio')
+    
+    # Aplicar filtros
+    if projeto_filtro:
+        sessoes = sessoes.filter(projeto_id=projeto_filtro)
+    
+    if data_inicio:
+        try:
+            data_inicio_obj = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+            sessoes = sessoes.filter(inicio__date__gte=data_inicio_obj)
+        except ValueError:
+            pass
+    
+    if data_fim:
+        try:
+            data_fim_obj = datetime.strptime(data_fim, '%Y-%m-%d').date()
+            sessoes = sessoes.filter(inicio__date__lte=data_fim_obj)
+        except ValueError:
+            pass
+    
+    # Paginação (opcional - pode ser implementada depois)
+    sessoes = sessoes[:100]  # Limita a 100 registros por enquanto
+    
+    projetos = Projeto.objects.all().order_by('nome')
     
     context = {
-        'sessoes': sessoes
+        'sessoes': sessoes,
+        'projetos': projetos,
+        'projeto_filtro': projeto_filtro,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
     }
     return render(request, 'projects/historico.html', context)
 
@@ -186,6 +202,67 @@ def gerenciar_projetos(request):
         'projetos': projetos
     }
     return render(request, 'projects/gerenciar_projetos.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def editar_projeto(request, projeto_id):
+    """Edita um projeto existente"""
+    projeto = get_object_or_404(Projeto, id=projeto_id)
+    
+    if request.method == 'GET':
+        # Retorna dados do projeto para popular o modal
+        return JsonResponse({
+            'success': True,
+            'projeto': {
+                'id': projeto.id,
+                'nome': projeto.nome,
+                'descricao': projeto.descricao,
+                'cor': projeto.cor,
+                'ativo': projeto.ativo
+            }
+        })
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body) if request.body else {}
+            nome = data.get('nome', '').strip()
+            descricao = data.get('descricao', '').strip()
+            cor = data.get('cor', '#007bff')
+            ativo = data.get('ativo', True)
+            
+            if not nome:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Nome do projeto é obrigatório.'
+                })
+            
+            # Verificar se já existe outro projeto com o mesmo nome
+            if Projeto.objects.filter(nome=nome).exclude(id=projeto.id).exists():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Já existe um projeto com este nome.'
+                })
+            
+            # Atualizar projeto
+            projeto.nome = nome
+            projeto.descricao = descricao
+            projeto.cor = cor
+            projeto.ativo = ativo
+            projeto.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Projeto "{projeto.nome}" atualizado com sucesso!'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erro ao atualizar projeto: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método não permitido'})
 
 
 @csrf_exempt

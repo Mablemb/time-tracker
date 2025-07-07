@@ -122,10 +122,56 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Editar Projeto -->
+<div class="modal fade" id="editarProjetoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Projeto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="edit_nome" class="form-label">Nome do Projeto *</label>
+                    <input type="text" class="form-control" id="edit_nome" required>
+                </div>
+                <div class="mb-3">
+                    <label for="edit_descricao" class="form-label">Descrição</label>
+                    <textarea class="form-control" id="edit_descricao" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="edit_cor" class="form-label">Cor do Projeto</label>
+                    <div class="d-flex align-items-center">
+                        <input type="color" class="form-control form-control-color me-2" id="edit_cor">
+                        <span class="text-muted small">Escolha uma cor para identificar o projeto</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="edit_ativo">
+                        <label class="form-check-label" for="edit_ativo">
+                            Projeto ativo
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarEdicaoProjeto()">
+                    <i class="bi bi-check-circle"></i> Salvar Alterações
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Variável global para armazenar o ID do projeto sendo editado
+    let projetoEditandoId = null;
+
     // Função para obter o CSRF token
     function getCSRFToken() {
         const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
@@ -133,8 +179,86 @@
     }
 
     function editarProjeto(id) {
-        // TODO: Implementar edição de projeto
-        alert('Funcionalidade de edição será implementada em breve!');
+        // Carregar dados do projeto
+        fetch(`/projetos/editar/${id}/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Preencher o modal com os dados do projeto
+                projetoEditandoId = id;
+                document.getElementById('edit_nome').value = data.projeto.nome;
+                document.getElementById('edit_descricao').value = data.projeto.descricao;
+                document.getElementById('edit_cor').value = data.projeto.cor;
+                document.getElementById('edit_ativo').checked = data.projeto.ativo;
+                
+                // Mostrar o modal
+                const modal = new bootstrap.Modal(document.getElementById('editarProjetoModal'));
+                modal.show();
+            } else {
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            showMessage('Erro ao carregar dados do projeto', 'error');
+        });
+    }
+
+    function salvarEdicaoProjeto() {
+        if (!projetoEditandoId) {
+            showMessage('Erro: ID do projeto não encontrado', 'error');
+            return;
+        }
+
+        const nome = document.getElementById('edit_nome').value.trim();
+        const descricao = document.getElementById('edit_descricao').value.trim();
+        const cor = document.getElementById('edit_cor').value;
+        const ativo = document.getElementById('edit_ativo').checked;
+
+        if (!nome) {
+            showMessage('Nome do projeto é obrigatório', 'error');
+            return;
+        }
+
+        // Salvar alterações
+        fetch(`/projetos/editar/${projetoEditandoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                nome: nome,
+                descricao: descricao,
+                cor: cor,
+                ativo: ativo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editarProjetoModal'));
+                modal.hide();
+                // Recarregar a página para mostrar as alterações
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            showMessage('Erro ao salvar alterações', 'error');
+        });
     }
 
     function toggleStatus(id, ativo) {
@@ -217,5 +341,14 @@
             }
         }, 5000);
     }
+
+    // Limpar dados ao fechar o modal de edição
+    document.getElementById('editarProjetoModal').addEventListener('hidden.bs.modal', function () {
+        projetoEditandoId = null;
+        document.getElementById('edit_nome').value = '';
+        document.getElementById('edit_descricao').value = '';
+        document.getElementById('edit_cor').value = '#007bff';
+        document.getElementById('edit_ativo').checked = true;
+    });
 </script>
 {% endblock %}
