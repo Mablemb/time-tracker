@@ -332,6 +332,44 @@ class SessaoViewsTest(TestCase):
         # Verificar se a sessão foi removida
         self.assertFalse(SessaoTempo.objects.filter(id=sessao.id).exists())
 
+    def test_atualizar_horario_fim(self):
+        """Testa atualização do horário de fim de uma sessão já encerrada"""
+        from datetime import timedelta
+        # Criar sessão encerrada com duração válida
+        inicio = timezone.now() - timedelta(hours=2)
+        fim = inicio + timedelta(minutes=10)
+        sessao = SessaoTempo.objects.create(projeto=self.projeto, inicio=inicio, fim=fim)
+        novo_fim = (inicio + timedelta(minutes=30)).replace(microsecond=0).isoformat()
+        data = {'novo_horario_fim': novo_fim}
+        response = self.client.post(
+            reverse('atualizar_horario_fim', args=[sessao.id]),
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        response_data = json.loads(response.content)
+        self.assertTrue(response_data['success'])
+        self.assertIn('atualizado', response_data['message'])
+        # Verifica se o horário foi realmente alterado
+        sessao.refresh_from_db()
+        self.assertEqual(sessao.fim.replace(microsecond=0), timezone.datetime.fromisoformat(novo_fim).replace(tzinfo=sessao.fim.tzinfo))
+
+    def test_atualizar_horario_fim_invalido(self):
+        """Testa atualização para horário inválido (<5min)"""
+        from datetime import timedelta
+        inicio = timezone.now() - timedelta(hours=2)
+        fim = inicio + timedelta(minutes=10)
+        sessao = SessaoTempo.objects.create(projeto=self.projeto, inicio=inicio, fim=fim)
+        novo_fim = (inicio + timedelta(minutes=2)).replace(microsecond=0).isoformat()
+        data = {'novo_horario_fim': novo_fim}
+        response = self.client.post(
+            reverse('atualizar_horario_fim', args=[sessao.id]),
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        response_data = json.loads(response.content)
+        self.assertFalse(response_data['success'])
+        self.assertIn('menos de 5 minutos', response_data['message'])
+
 
 class IntegrationTest(TestCase):
     """Testes de integração do sistema completo"""

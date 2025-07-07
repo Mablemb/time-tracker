@@ -53,6 +53,35 @@ python manage.py runserver
 - 🎨 **Interface responsiva** com Bootstrap
 - 🔒 **Validações de segurança** e integridade de dados
 
+- 🚫 **Prevenção de sessões acidentais:** sessões com duração menor que 5 minutos são automaticamente descartadas e não contam para o tempo total. O usuário é avisado quando isso ocorre.
+- ⏱️ **Ajuste de precisão:** horários de início/fim e duração das sessões são exibidos com precisão de 1 segundo (mínimo exibido: 1s).
+- ✏️ **Edição de sessões finalizadas:** é possível editar o horário de término de sessões já encerradas, para corrigir registros antigos. O novo horário deve respeitar as regras de duração mínima (>= 5 minutos) e não pode ser anterior ao início ou no futuro.
+## 🔗 Endpoints principais
+
+- `/` - Dashboard
+- `/projetos/` - Gerenciar projetos
+- `/historico/` - Histórico de sessões
+- `/relatorios/` - Relatórios
+- `/sessao/iniciar/<projeto_id>/` - Iniciar sessão
+- `/sessao/finalizar/` - Finalizar sessão
+- `/sessao/status/` - Status da sessão atual
+- `/sessao/<id>/atualizar_fim/` - **Atualizar horário de fim de uma sessão já encerrada** (POST, JSON: `{ "novo_horario_fim": "YYYY-MM-DDTHH:MM:SS" }`)
+## ℹ️ Observações
+
+- O sistema **descarta automaticamente** sessões com duração inferior a 5 minutos para evitar registros acidentais. O usuário recebe um aviso quando isso ocorre.
+- O horário de início/fim é salvo e exibido com precisão de segundos (mínimo exibido: 1s).
+- Para editar o horário de fim de uma sessão já encerrada, utilize o novo endpoint `/sessao/<id>/atualizar_fim/` ou a interface de histórico (ver instruções abaixo).
+## ✏️ Edição do horário de fim de sessões (interface)
+
+No histórico de sessões, agora é possível editar o horário de término de sessões já encerradas:
+
+1. Clique no ícone de edição (🖉) ao lado do horário de fim da sessão desejada.
+2. Um modal será exibido para selecionar o novo horário de fim.
+3. O novo horário deve ser posterior ao início, não pode ser no futuro e a duração total deve ser de pelo menos 5 minutos.
+4. Após salvar, a sessão será atualizada e o histórico será recarregado.
+
+Se a alteração não for válida, uma mensagem de erro será exibida.
+
 ## 🔧 Tecnologias
 
 - **Backend**: Django 5.2.2, Python 3.12
@@ -97,3 +126,15 @@ Este projeto foi desenvolvido para fins educacionais e de aprendizado de Python/
 **Status**: ✅ Projeto completo e funcional com CRUD completo  
 **Versão**: 1.1.0  
 **Data**: Julho 2025
+
+---
+
+### Novidades da versão 1.1.0 (Julho/2025)
+
+- Novo modal para edição do horário de fim de sessões já encerradas (com validação de duração mínima e UX aprimorada)
+- Prevenção automática de sessões acidentais: sessões com menos de 5 minutos são descartadas
+- Precisão de 1 segundo em todos os horários e durações
+- Correção de problemas de timezone e comparação de datas
+- Relatórios e estatísticas revisados: porcentagens, barras e médias exibidas corretamente
+- Interface e mensagens aprimoradas
+- Documentação e testes atualizados

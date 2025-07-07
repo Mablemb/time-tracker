@@ -47,14 +47,49 @@
                         </td>
                         <td>
                             {% if sessao.fim %}
-                            <div>
-                                <strong>{{ sessao.fim|date:"d/m/Y" }}</strong><br>
-                                <small class="text-muted">{{ sessao.fim|date:"H:i" }}</small>
+                            <div class="d-flex align-items-center">
+                                <div>
+                                    <strong>{{ sessao.fim|date:"d/m/Y" }}</strong><br>
+                                    <small class="text-muted">{{ sessao.fim|date:"H:i:s" }}</small>
+                                </div>
+                                <button class="btn btn-link btn-sm ms-2 p-0 text-warning" title="Editar horário de fim"
+                                    data-sessao-id="{{ sessao.id }}"
+                                    data-fim="{{ sessao.fim|date:'Y-m-dTH:i:s' }}"
+                                    data-inicio="{{ sessao.inicio|date:'Y-m-dTH:i:s' }}"
+                                    onclick="abrirModalEditarFimPorData(this)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
                             </div>
                             {% else %}
                             <span class="badge bg-success">Em andamento</span>
                             {% endif %}
                         </td>
+<!-- Modal para editar horário de fim -->
+<div class="modal fade" id="editarFimModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Horário de Fim</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarFim">
+                    <input type="hidden" id="sessaoIdEditarFim">
+                    <div class="mb-3">
+                        <label for="novoFim" class="form-label">Novo horário de fim</label>
+                        <input type="datetime-local" class="form-control" id="novoFim" required>
+                        <div class="form-text">O novo horário deve ser posterior ao início e ter pelo menos 5 minutos de duração.</div>
+                    </div>
+                    <div id="erroEditarFim" class="alert alert-danger d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarNovoFim()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
                         <td>
                             <span class="badge bg-primary">{{ sessao.duracao_formatada }}</span>
                         </td>
@@ -68,18 +103,16 @@
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
                                 <button class="btn btn-outline-primary btn-sm" 
-                                        onclick="verDetalhes({{ sessao.id }})"
+                                        data-sessao-id="{{ sessao.id }}"
+                                        onclick="verDetalhesPorData(this)"
                                         title="Ver detalhes">
                                     <i class="bi bi-eye"></i>
                                 </button>
                                 {% if not sessao.em_andamento %}
-                                <button class="btn btn-outline-warning btn-sm" 
-                                        onclick="editarSessao({{ sessao.id }})"
-                                        title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
+                                <!-- Botão de edição de descrição pode ser adicionado aqui futuramente -->
                                 <button class="btn btn-outline-danger btn-sm" 
-                                        onclick="excluirSessao({{ sessao.id }})"
+                                        data-sessao-id="{{ sessao.id }}"
+                                        onclick="excluirSessaoPorData(this)"
                                         title="Excluir">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -177,7 +210,8 @@
 
 {% block extra_js %}
 <script>
-    function verDetalhes(sessaoId) {
+    function verDetalhesPorData(btn) {
+        const sessaoId = btn.dataset.sessaoId;
         // TODO: Carregar detalhes da sessão via AJAX
         document.getElementById('detalhesContent').innerHTML = `
             <div class="text-center">
@@ -186,11 +220,8 @@
                 </div>
             </div>
         `;
-        
         const modal = new bootstrap.Modal(document.getElementById('detalhesModal'));
         modal.show();
-        
-        // Simular carregamento
         setTimeout(() => {
             document.getElementById('detalhesContent').innerHTML = `
                 <p>Funcionalidade de detalhes será implementada em breve!</p>
@@ -198,11 +229,66 @@
         }, 1000);
     }
 
-    function editarSessao(sessaoId) {
-        alert('Funcionalidade de edição será implementada em breve!');
+
+    function abrirModalEditarFimPorData(btn) {
+        const sessaoId = btn.dataset.sessaoId;
+        const fimAtual = btn.dataset.fim;
+        const inicioSessao = btn.dataset.inicio;
+        document.getElementById('sessaoIdEditarFim').value = sessaoId;
+        document.getElementById('novoFim').value = fimAtual;
+        document.getElementById('novoFim').min = inicioSessao;
+        document.getElementById('erroEditarFim').classList.add('d-none');
+        const modal = new bootstrap.Modal(document.getElementById('editarFimModal'));
+        modal.show();
     }
 
-    function excluirSessao(sessaoId) {
+    function salvarNovoFim() {
+        const sessaoId = document.getElementById('sessaoIdEditarFim').value;
+        const novoFim = document.getElementById('novoFim').value;
+        const erroDiv = document.getElementById('erroEditarFim');
+        erroDiv.classList.add('d-none');
+
+        fetch(`/sessao/${sessaoId}/atualizar_fim/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ novo_horario_fim: novoFim })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                erroDiv.textContent = data.message || data.erro || 'Erro ao atualizar horário de fim.';
+                erroDiv.classList.remove('d-none');
+            }
+        })
+        .catch(() => {
+            erroDiv.textContent = 'Erro de comunicação com o servidor.';
+            erroDiv.classList.remove('d-none');
+        });
+    }
+
+    // Função utilitária para obter o CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function excluirSessaoPorData(btn) {
+        const sessaoId = btn.dataset.sessaoId;
         if (confirm('Tem certeza que deseja excluir esta sessão? Esta ação não pode ser desfeita.')) {
             alert('Funcionalidade de exclusão será implementada em breve!');
         }

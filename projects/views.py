@@ -1,3 +1,52 @@
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
+import json
+from .models import SessaoTempo
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def atualizar_horario_fim(request, sessao_id):
+    """Permite atualizar o horário de fim de uma sessão já encerrada"""
+    try:
+        sessao = SessaoTempo.objects.get(id=sessao_id)
+    except SessaoTempo.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Sessão não encontrada.'})
+
+    if sessao.fim is None:
+        return JsonResponse({'success': False, 'message': 'A sessão ainda está em andamento.'})
+
+    data = json.loads(request.body) if request.body else {}
+    novo_fim_str = data.get('novo_horario_fim')
+    if not novo_fim_str:
+        return JsonResponse({'success': False, 'message': 'Novo horário de fim não informado.'})
+
+    from django.utils.dateparse import parse_datetime
+    from django.utils import timezone
+    novo_fim = parse_datetime(novo_fim_str)
+    # Tenta adicionar segundos se vier só até minutos
+    if not novo_fim and len(novo_fim_str) == 16:
+        novo_fim = parse_datetime(novo_fim_str + ':00')
+    if not novo_fim:
+        return JsonResponse({'success': False, 'message': 'Formato de data/hora inválido.'})
+    # Corrigir: garantir que novo_fim seja timezone-aware
+    if timezone.is_naive(novo_fim):
+        novo_fim = timezone.make_aware(novo_fim, timezone.get_current_timezone())
+    if timezone.is_naive(sessao.inicio):
+        inicio_sessao = timezone.make_aware(sessao.inicio, timezone.get_current_timezone())
+    else:
+        inicio_sessao = sessao.inicio
+    if novo_fim < inicio_sessao:
+        return JsonResponse({'success': False, 'message': 'O horário de fim não pode ser anterior ao início da sessão.'})
+    if novo_fim > timezone.now():
+        return JsonResponse({'success': False, 'message': 'O horário de fim não pode ser no futuro.'})
+    duracao = (novo_fim - inicio_sessao).total_seconds()
+    if duracao < 300:
+        return JsonResponse({'success': False, 'message': 'Sessão não pode ser atualizada para menos de 5 minutos.'})
+
+    sessao.fim = novo_fim
+    sessao.save()
+    return JsonResponse({'success': True, 'message': 'Horário de fim atualizado com sucesso.'})
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.utils import timezone
@@ -82,31 +131,36 @@ def finalizar_sessao(request):
             try:
                 # Converter string ISO para datetime
                 fim_datetime = parse_datetime(horario_fim_manual)
-                
+                # Tenta adicionar segundos se vier só até minutos
+                if not fim_datetime and len(horario_fim_manual) == 16:
+                    fim_datetime = parse_datetime(horario_fim_manual + ':00')
                 if not fim_datetime:
                     return JsonResponse({
                         'success': False,
                         'message': 'Formato de data/hora inválido.'
                     })
-                
+                # Garantir timezone-aware
+                if timezone.is_naive(fim_datetime):
+                    fim_datetime = timezone.make_aware(fim_datetime, timezone.get_current_timezone())
+                if timezone.is_naive(sessao_ativa.inicio):
+                    inicio_sessao = timezone.make_aware(sessao_ativa.inicio, timezone.get_current_timezone())
+                else:
+                    inicio_sessao = sessao_ativa.inicio
                 # Validar se não é no futuro
                 if fim_datetime > timezone.now():
                     return JsonResponse({
                         'success': False,
                         'message': 'O horário de fim não pode ser no futuro.'
                     })
-                
                 # Validar se não é anterior ao início da sessão
-                if fim_datetime < sessao_ativa.inicio:
+                if fim_datetime < inicio_sessao:
                     return JsonResponse({
                         'success': False,
                         'message': 'O horário de fim não pode ser anterior ao início da sessão.'
                     })
-                
                 # Usar horário manual
                 sessao_ativa.fim = fim_datetime
                 horario_usado = "manual"
-                
             except Exception as e:
                 return JsonResponse({
                     'success': False,
@@ -156,7 +210,11 @@ def relatorios(request):
     projetos = Projeto.objects.filter(ativo=True)
     dados_relatorio = []
     total_segundos = 0
-    
+
+    # Nome do período para exibição
+    nomes_periodo = {'dia': 'Hoje', 'semana': 'Esta Semana', 'mes': 'Este Mês'}
+    periodo_nome = nomes_periodo.get(periodo, 'Período')
+
     for projeto in projetos:
         if periodo == 'dia':
             tempo = projeto.tempo_total_hoje()
@@ -166,7 +224,7 @@ def relatorios(request):
             tempo = projeto.tempo_total_mes()
         else:
             tempo = timedelta()
-        
+
         if tempo.total_seconds() > 0:
             dados_relatorio.append({
                 'projeto': projeto,
@@ -175,21 +233,32 @@ def relatorios(request):
                 'segundos': int(tempo.total_seconds())
             })
             total_segundos += tempo.total_seconds()
-    
-    # Calcular percentuais
+
+    # Calcular porcentagem e largura da barra
     for item in dados_relatorio:
         if total_segundos > 0:
-            item['percentual'] = (item['segundos'] / total_segundos) * 100
+            item['porcentagem'] = (item['segundos'] / total_segundos) * 100
+            item['largura_barra'] = item['porcentagem']
         else:
-            item['percentual'] = 0
-    
+            item['porcentagem'] = 0
+            item['largura_barra'] = 0
+
     # Ordenar por tempo decrescente
     dados_relatorio.sort(key=lambda x: x['segundos'], reverse=True)
-    
+
+    # Estatísticas
+    projetos_ativos = projetos.count()
+    media_horas = 0
+    if len(dados_relatorio) > 0:
+        media_horas = (total_segundos / 3600) / len(dados_relatorio)
+
     context = {
         'dados_relatorio': dados_relatorio,
         'periodo': periodo,
+        'periodo_nome': periodo_nome,
         'total_formatado': str(timedelta(seconds=total_segundos)).split('.')[0],
+        'projetos_ativos': projetos_ativos,
+        'media_horas': media_horas,
         'tem_dados': len(dados_relatorio) > 0
     }
     return render(request, 'projects/relatorios.html', context)

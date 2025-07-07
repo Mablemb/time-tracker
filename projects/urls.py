@@ -12,4 +12,5 @@ urlpatterns = [
     path('projetos/excluir/<int:projeto_id>/', views.excluir_projeto, name='excluir_projeto'),
     path('projetos/toggle/<int:projeto_id>/', views.toggle_projeto_status, name='toggle_projeto_status'),
     path('api/status/', views.status_sessao, name='status_sessao'),
+    path('sessao/<int:sessao_id>/atualizar_fim/', views.atualizar_horario_fim, name='atualizar_horario_fim'),
 ]
