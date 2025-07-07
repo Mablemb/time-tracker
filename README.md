@@ -8,6 +8,22 @@ Sistema Django para controle de tempo dedicado a projetos, funcionando como um "
 
 ## 🚀 Início Rápido
 
+### ⚠️ Pré-requisitos para Windows
+
+Para rodar o TimeTracker no Windows, é necessário ter o **Python 3** instalado e disponível no PATH do sistema:
+
+1. Baixe o Python em: https://www.python.org/downloads/windows/
+2. Durante a instalação, marque a opção **“Add Python to PATH”** antes de clicar em “Install Now”.
+3. Após instalar, feche e reabra o Explorer/Prompt de Comando.
+4. Para testar, abra o Prompt e digite:
+   ```
+   python --version
+   pip --version
+   ```
+   Ambos devem exibir a versão instalada.
+
+Se aparecer mensagem de erro, reinicie o computador ou revise a instalação.
+
 
 ### Método 1: Script Automático (Recomendado)
 

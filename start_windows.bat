@@ -1,10 +1,17 @@
 @echo off
 REM Script de inicialização para Windows - TimeTracker
 
+REM Detecta se deve usar py ou python
+set PYTHON_CMD=python
+where python >nul 2>nul
+if errorlevel 1 (
+    set PYTHON_CMD=py
+)
+
 REM Ativa o ambiente virtual ou cria se não existir
 if not exist venv (
     echo Criando ambiente virtual Python...
-    python -m venv venv
+    %PYTHON_CMD% -m venv venv
 )
 
 call venv\Scripts\activate
@@ -16,10 +23,10 @@ if exist requirements.txt (
 )
 
 REM Executa migrações
-python manage.py migrate
+%PYTHON_CMD% manage.py migrate
 
 REM Inicia o servidor Django
-start "TimeTracker" cmd /c "python manage.py runserver"
+start "TimeTracker" cmd /c "%PYTHON_CMD% manage.py runserver"
 
 REM Aguarda alguns segundos e abre o navegador
 ping 127.0.0.1 -n 5 > nul
