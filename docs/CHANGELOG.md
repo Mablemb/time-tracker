@@ -2,7 +2,59 @@
 
 Registro de todas as mudanças importantes do projeto.
 
-## [1.0.0] - 2025-06-07
+## [1.2.0] - 2025-07-17 🚀
+
+### ✨ Principais Novidades
+
+#### 📊 Sistema de Gráficos Interativos
+- **Gráfico de Barras** - Tempo dedicado por projeto
+- **Gráfico de Pizza** - Distribuição percentual do tempo
+- **Gráfico de Linha** - Evolução temporal das atividades
+- **Mapa de Calor** - Padrões de atividade por hora/dia
+- **Filtros Responsivos** - Visualização por dia/semana/mês
+- **Integração Chart.js** - Gráficos profissionais e interativos
+
+#### 🛡️ Sistema de Dados de Teste Seguro
+- **Dados de Demonstração** - População automática para testes
+- **Marcação Inteligente** - Campo `dados_teste` em modelos
+- **Separação Total** - Dados reais protegidos de modificação
+- **Interface Condicional** - Funcionalidades só em desenvolvimento
+- **Remoção Segura** - Limpeza sem afetar dados do usuário
+
+#### ✅ Compatibilidade e Migração
+- **100% Compatível** - Zero breaking changes
+- **Migração Automática** - Adição segura de campos
+- **Script de Verificação** - Validação de integridade incluída
+- **Proteções Múltiplas** - Prevenção contra modificações acidentais
+
+### 🔧 Melhorias Técnicas
+- **Novos Endpoints** - APIs para dados de teste
+- **Otimização de Queries** - Performance melhorada para gráficos
+- **Validações Aprimoradas** - Segurança reforçada em operações
+- **Indicadores Visuais** - Feedback claro sobre tipos de dados
+
+### 📋 Arquivos Modificados
+- `projects/models.py` - Adicionados campos `dados_teste`
+- `projects/views.py` - Novas views e lógica de gráficos
+- `projects/urls.py` - Endpoints para dados de teste
+- `templates/projects/relatorios.html` - Interface completa de gráficos
+- `README.md` - Documentação atualizada e revisada
+
+### 📚 Documentação Nova
+- `RELEASE_NOTES_v1.2.0.md` - Notas da release
+- `docs/SEGURANCA_DADOS_TESTE.md` - Documentação de segurança
+- `docs/COMPATIBILIDADE_DADOS_EXISTENTES.md` - Guia de compatibilidade
+- `verificar_integridade.py` - Script de verificação automática
+
+### 🎯 Qualidade
+- ✅ **Testes Completos** - Todas as funcionalidades validadas
+- ✅ **Compatibilidade** - Dados existentes preservados
+- ✅ **Documentação** - Guias completos de uso e segurança
+- ✅ **Performance** - Otimizações para grandes volumes de dados
+
+## [1.1.0] - 2025-07-15
+
+### ✨ Funcionalidades Adicionadas
 
 ### ✨ Funcionalidades Adicionadas
 - **Sistema completo de controle de tempo**

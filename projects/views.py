@@ -58,6 +58,8 @@ from django.views.decorators.http import require_http_methods
 from .models import Projeto, SessaoTempo
 import json
 from datetime import datetime, timedelta
+from django.db.models import Sum
+from collections import defaultdict
 
 
 def dashboard(request):
@@ -204,7 +206,7 @@ def finalizar_sessao(request):
 
 
 def relatorios(request):
-    """View para exibir relatórios"""
+    """View para exibir relatórios com gráficos interativos"""
     periodo = request.GET.get('periodo', 'dia')  # dia, semana, mes
     
     projetos = Projeto.objects.filter(ativo=True)
@@ -252,6 +254,20 @@ def relatorios(request):
     if len(dados_relatorio) > 0:
         media_horas = (total_segundos / 3600) / len(dados_relatorio)
 
+    # Dados para gráficos baseados no período selecionado
+    dados_graficos = _obter_dados_graficos_por_periodo(projetos, periodo)
+    
+    # Converter para JSON para o JavaScript
+    import json
+    from django.conf import settings
+    dados_graficos_json = json.dumps(dados_graficos)
+    
+    # Verificar se há dados de teste no sistema
+    tem_dados_teste = (
+        Projeto.objects.filter(dados_teste=True).exists() or 
+        SessaoTempo.objects.filter(dados_teste=True).exists()
+    )
+
     context = {
         'dados_relatorio': dados_relatorio,
         'periodo': periodo,
@@ -259,7 +275,11 @@ def relatorios(request):
         'total_formatado': str(timedelta(seconds=total_segundos)).split('.')[0],
         'projetos_ativos': projetos_ativos,
         'media_horas': media_horas,
-        'tem_dados': len(dados_relatorio) > 0
+        'tem_dados': len(dados_relatorio) > 0,
+        'dados_graficos': dados_graficos,
+        'dados_graficos_json': dados_graficos_json,
+        'debug': settings.DEBUG,  # Adicionar flag de debug
+        'tem_dados_teste': tem_dados_teste,  # Indicador de dados de teste
     }
     return render(request, 'projects/relatorios.html', context)
 
@@ -484,3 +504,375 @@ def status_sessao(request):
         })
     
     return JsonResponse({'ativa': False})
+
+
+def _obter_dados_graficos_por_periodo(projetos, periodo):
+    """Prepara dados para os gráficos baseados no período selecionado"""
+    hoje = timezone.now().date()
+    
+    # Definir período baseado na seleção
+    if periodo == 'dia':
+        inicio_periodo = hoje
+        titulo_periodo = 'Hoje'
+    elif periodo == 'semana':
+        inicio_periodo = hoje - timedelta(days=hoje.weekday())
+        titulo_periodo = 'Esta Semana'
+    elif periodo == 'mes':
+        inicio_periodo = hoje.replace(day=1)
+        titulo_periodo = 'Este Mês'
+    else:
+        inicio_periodo = hoje
+        titulo_periodo = 'Hoje'
+    
+    # 1. Gráfico de barras - Tempo por projeto no período selecionado
+    dados_barras = {
+        'labels': [],
+        'cores': [],
+        'dados': [],
+        'titulo': titulo_periodo
+    }
+    
+    # 2. Gráfico de pizza - Distribuição do tempo no período
+    dados_pizza = {
+        'labels': [],
+        'dados': [],
+        'cores': []
+    }
+    
+    total_periodo_segundos = 0
+    
+    for projeto in projetos:
+        # Calcular tempo baseado no período selecionado
+        if periodo == 'dia':
+            tempo = projeto.tempo_total_hoje()
+        elif periodo == 'semana':
+            tempo = projeto.tempo_total_semana()
+        elif periodo == 'mes':
+            tempo = projeto.tempo_total_mes()
+        else:
+            tempo = projeto.tempo_total_hoje()
+        
+        # Para gráfico de barras (mostrar todos os projetos, mesmo com 0 horas)
+        dados_barras['labels'].append(projeto.nome)
+        dados_barras['cores'].append(projeto.cor)
+        dados_barras['dados'].append(round(tempo.total_seconds() / 3600, 2))  # em horas
+        
+        # Para gráfico de pizza (apenas se houver tempo no período)
+        if tempo.total_seconds() > 0:
+            dados_pizza['labels'].append(projeto.nome)
+            dados_pizza['dados'].append(round(tempo.total_seconds() / 3600, 2))
+            dados_pizza['cores'].append(projeto.cor)
+            total_periodo_segundos += tempo.total_seconds()
+    
+    # 3. Gráfico de linha - Evolução baseada no período
+    if periodo == 'dia':
+        # Para "hoje", mostrar últimas 24 horas
+        dados_linha = _obter_dados_linha_horas_hoje(projetos)
+    elif periodo == 'semana':
+        # Para "semana", mostrar últimos 7 dias
+        dados_linha = _obter_dados_linha_ultimos_dias(projetos, 7)
+    else:  # mês
+        # Para "mês", mostrar últimos 30 dias
+        dados_linha = _obter_dados_linha_ultimos_dias(projetos, 30)
+    
+    # 4. Gráfico de heatmap - Atividade por hora baseada no período
+    if periodo == 'dia':
+        dados_heatmap = _obter_dados_heatmap_horas(projetos, 1)
+    elif periodo == 'semana':
+        dados_heatmap = _obter_dados_heatmap_horas(projetos, 7)
+    else:  # mês
+        dados_heatmap = _obter_dados_heatmap_horas(projetos, 30)
+    
+    return {
+        'barras': dados_barras,
+        'pizza': dados_pizza,
+        'linha': dados_linha,
+        'heatmap': dados_heatmap,
+        'total_periodo_horas': round(total_periodo_segundos / 3600, 1),
+        'periodo': periodo,
+        'titulo_periodo': titulo_periodo
+    }
+
+
+def _obter_dados_linha_ultimos_dias(projetos, num_dias):
+    """Obtém dados para gráfico de linha dos últimos N dias"""
+    hoje = timezone.now().date()
+    dados = {
+        'labels': [],
+        'datasets': []
+    }
+    
+    # Preparar labels (datas)
+    for i in range(num_dias - 1, -1, -1):
+        data = hoje - timedelta(days=i)
+        dados['labels'].append(data.strftime('%d/%m'))
+    
+    # Preparar datasets por projeto
+    for projeto in projetos:
+        dataset = {
+            'label': projeto.nome,
+            'data': [],
+            'borderColor': projeto.cor,
+            'backgroundColor': projeto.cor + '20',  # cor com transparência
+            'tension': 0.4
+        }
+        
+        # Calcular tempo por dia
+        for i in range(num_dias - 1, -1, -1):
+            data = hoje - timedelta(days=i)
+            sessoes = projeto.sessoes.filter(
+                inicio__date=data,
+                fim__isnull=False
+            )
+            tempo_total = sum([s.duracao().total_seconds() for s in sessoes], 0)
+            dataset['data'].append(round(tempo_total / 3600, 2))  # em horas
+        
+        # Só adicionar se houver dados
+        if any(d > 0 for d in dataset['data']):
+            dados['datasets'].append(dataset)
+    
+    return dados
+
+
+def _obter_dados_linha_horas_hoje(projetos):
+    """Obtém dados para gráfico de linha das últimas horas de hoje"""
+    agora = timezone.now()
+    inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    dados = {
+        'labels': [],
+        'datasets': []
+    }
+    
+    # Preparar labels (últimas 24 horas, de hora em hora)
+    for i in range(24):
+        hora = inicio_dia + timedelta(hours=i)
+        dados['labels'].append(hora.strftime('%H:00'))
+    
+    # Preparar datasets por projeto
+    for projeto in projetos:
+        dataset = {
+            'label': projeto.nome,
+            'data': [],
+            'borderColor': projeto.cor,
+            'backgroundColor': projeto.cor + '20',  # cor com transparência
+            'tension': 0.4
+        }
+        
+        # Calcular tempo por hora
+        for i in range(24):
+            hora_inicio = inicio_dia + timedelta(hours=i)
+            hora_fim = hora_inicio + timedelta(hours=1)
+            
+            sessoes = projeto.sessoes.filter(
+                inicio__gte=hora_inicio,
+                inicio__lt=hora_fim,
+                fim__isnull=False
+            )
+            tempo_total = sum([s.duracao().total_seconds() for s in sessoes], 0)
+            dataset['data'].append(round(tempo_total / 3600, 2))  # em horas
+        
+        # Só adicionar se houver dados
+        if any(d > 0 for d in dataset['data']):
+            dados['datasets'].append(dataset)
+    
+    return dados
+
+
+def _obter_dados_heatmap_horas(projetos, num_dias):
+    """Obtém dados para heatmap de atividade por hora"""
+    hoje = timezone.now().date()
+    inicio_periodo = hoje - timedelta(days=num_dias - 1)
+    
+    # Agrupar sessões por hora do dia
+    atividade_por_hora = defaultdict(float)
+    
+    for projeto in projetos:
+        sessoes = projeto.sessoes.filter(
+            inicio__date__gte=inicio_periodo,
+            inicio__date__lte=hoje,
+            fim__isnull=False
+        )
+        
+        for sessao in sessoes:
+            # Calcular tempo por hora dentro da sessão
+            inicio = sessao.inicio
+            fim = sessao.fim
+            
+            # Simplificado: usar apenas a hora de início
+            hora = inicio.hour
+            duracao_horas = sessao.duracao().total_seconds() / 3600
+            atividade_por_hora[hora] += duracao_horas
+    
+    # Preparar dados para o gráfico
+    dados_heatmap = []
+    for hora in range(24):
+        dados_heatmap.append({
+            'x': hora,
+            'y': round(atividade_por_hora.get(hora, 0), 2)
+        })
+    
+    return dados_heatmap
+
+
+@csrf_exempt
+def popular_dados_teste(request):
+    """Popula o banco com dados de teste para demonstração dos gráficos"""
+    if request.method == 'POST':
+        from datetime import timedelta
+        import random
+        
+        # VERIFICAÇÃO DE SEGURANÇA: Não executar se houver muitos dados reais
+        projetos_reais = Projeto.objects.filter(dados_teste=False).count()
+        sessoes_reais = SessaoTempo.objects.filter(dados_teste=False).count()
+        
+        if projetos_reais > 10 or sessoes_reais > 50:
+            return JsonResponse({
+                'success': False,
+                'message': f'Operação cancelada por segurança: {projetos_reais} projetos e {sessoes_reais} sessões reais encontradas. Use esta função apenas em ambiente de desenvolvimento.'
+            })
+        
+        # Criar alguns projetos se não existirem
+        projetos_dados = [
+            {'nome': 'Website Frontend', 'descricao': 'Desenvolvimento do frontend em React', 'cor': '#3498db'},
+            {'nome': 'API Backend', 'descricao': 'Desenvolvimento da API em Django', 'cor': '#2ecc71'},
+            {'nome': 'Mobile App', 'descricao': 'Aplicativo mobile em React Native', 'cor': '#e74c3c'},
+            {'nome': 'Documentação', 'descricao': 'Documentação técnica do projeto', 'cor': '#f39c12'},
+            {'nome': 'Testes', 'descricao': 'Testes automatizados', 'cor': '#9b59b6'},
+        ]
+        
+        projetos_criados = []
+        for dados in projetos_dados:
+            # Tentar encontrar projeto de teste existente primeiro
+            projeto_existente = Projeto.objects.filter(
+                nome=dados['nome'], 
+                dados_teste=True
+            ).first()
+            
+            if projeto_existente:
+                # Se já existe um projeto de teste com esse nome, usar ele
+                projetos_criados.append(projeto_existente)
+            else:
+                # Verificar se existe projeto real com esse nome
+                projeto_real = Projeto.objects.filter(
+                    nome=dados['nome'], 
+                    dados_teste=False
+                ).first()
+                
+                if projeto_real:
+                    # Se existe projeto real, criar com nome diferente
+                    nome_teste = f"{dados['nome']} (Teste)"
+                    projeto, criado = Projeto.objects.get_or_create(
+                        nome=nome_teste,
+                        defaults={
+                            'descricao': dados['descricao'] + ' - Dados de teste',
+                            'cor': dados['cor'],
+                            'dados_teste': True
+                        }
+                    )
+                else:
+                    # Se não existe projeto real, criar normalmente
+                    projeto, criado = Projeto.objects.get_or_create(
+                        nome=dados['nome'],
+                        defaults={
+                            'descricao': dados['descricao'],
+                            'cor': dados['cor'],
+                            'dados_teste': True
+                        }
+                    )
+                
+                projetos_criados.append(projeto)
+        
+        # Criar sessões de teste para os últimos 15 dias
+        hoje = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        for i in range(15):
+            data_sessao = hoje - timedelta(days=i)
+            
+            # Para cada dia, criar 1-4 sessões em projetos aleatórios
+            num_sessoes = random.randint(1, 4)
+            
+            for j in range(num_sessoes):
+                projeto = random.choice(projetos_criados)
+                
+                # Horário de início entre 8h e 17h
+                hora_inicio = random.randint(8, 17)
+                minuto_inicio = random.choice([0, 15, 30, 45])
+                
+                inicio = data_sessao.replace(
+                    hour=hora_inicio, 
+                    minute=minuto_inicio
+                )
+                
+                # Duração entre 30 minutos e 4 horas
+                duracao_minutos = random.randint(30, 240)
+                fim = inicio + timedelta(minutes=duracao_minutos)
+                
+                # Não criar sessão se já existe uma no mesmo horário
+                if not SessaoTempo.objects.filter(
+                    projeto=projeto,
+                    inicio__date=data_sessao.date(),
+                    inicio__hour=hora_inicio
+                ).exists():
+                    
+                    SessaoTempo.objects.create(
+                        projeto=projeto,
+                        inicio=inicio,
+                        fim=fim,
+                        descricao=f'Trabalho em {projeto.nome} - sessão de teste',
+                        dados_teste=True  # Marcar como dados de teste
+                    )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Dados de teste criados com segurança! {len(projetos_criados)} projetos de teste e múltiplas sessões. Dados reais de usuários preservados.',
+            'projetos_criados': [p.nome for p in projetos_criados]
+        })
+    
+    return JsonResponse({'success': False, 'message': 'Método não permitido'})
+
+
+@csrf_exempt
+def limpar_dados_teste(request):
+    """Remove todos os dados marcados como teste"""
+    if request.method == 'POST':
+        try:
+            # VERIFICAÇÃO DE SEGURANÇA: Confirmar que só vamos apagar dados de teste
+            projetos_teste = Projeto.objects.filter(dados_teste=True)
+            sessoes_teste = SessaoTempo.objects.filter(dados_teste=True)
+            
+            # Verificar se não há mistura acidental
+            projetos_reais_impactados = Projeto.objects.filter(dados_teste=False, id__in=projetos_teste.values('id'))
+            if projetos_reais_impactados.exists():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Erro de segurança: dados reais foram encontrados na seleção. Operação cancelada.'
+                })
+            
+            count_projetos = projetos_teste.count()
+            count_sessoes = sessoes_teste.count()
+            
+            if count_projetos == 0 and count_sessoes == 0:
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Nenhum dado de teste encontrado para remover.'
+                })
+            
+            # Excluir sessões de teste primeiro
+            sessoes_teste.delete()
+            
+            # Excluir projetos de teste
+            projetos_teste.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Dados de teste removidos com segurança: {count_projetos} projeto(s) e {count_sessoes} sessão(ões). Dados reais preservados.'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erro ao limpar dados de teste: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método não permitido'})

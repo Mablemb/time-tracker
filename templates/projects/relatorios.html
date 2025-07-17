@@ -3,20 +3,130 @@
 {% block title %}Relatórios - TimeTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-graph-up"></i> Relatórios</h2>
-    <div class="btn-group" role="group">
-        <a href="?periodo=dia" class="btn {% if periodo == 'dia' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            Hoje
-        </a>
-        <a href="?periodo=semana" class="btn {% if periodo == 'semana' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            Esta Semana
-        </a>
-        <a href="?periodo=mes" class="btn {% if periodo == 'mes' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            Este Mês
-        </a>
+{% if tem_dados_teste %}
+<div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+    <i class="bi bi-info-circle-fill me-2"></i>
+    <div>
+        <strong>Dados de Teste Detectados:</strong> O sistema contém dados de exemplo. 
+        {% if debug %}
+        Use o botão "Limpar Teste" para removê-los.
+        {% endif %}
     </div>
 </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-graph-up"></i> Relatórios</h2>
+    <div class="d-flex align-items-center gap-3">
+        {% if debug %}
+        <div class="btn-group" role="group">
+            <button class="btn btn-outline-info btn-sm" onclick="popularDadosTeste()" title="Criar dados de exemplo para os gráficos">
+                <i class="bi bi-database-add"></i> Dados de Teste
+            </button>
+            <button class="btn btn-outline-warning btn-sm" onclick="limparDadosTeste()" title="Remover todos os dados de teste">
+                <i class="bi bi-trash"></i> Limpar Teste
+            </button>
+        </div>
+        {% endif %}
+        <div class="btn-group" role="group">
+            <a href="?periodo=dia" class="btn {% if periodo == 'dia' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Hoje
+            </a>
+            <a href="?periodo=semana" class="btn {% if periodo == 'semana' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Esta Semana
+            </a>
+            <a href="?periodo=mes" class="btn {% if periodo == 'mes' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Este Mês
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Seção de Gráficos Interativos -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h3><i class="bi bi-graph-up"></i> Análise Visual - {{ dados_graficos.titulo_periodo }}</h3>
+    </div>
+</div>
+
+<!-- Grid de Gráficos -->
+<div class="row mb-4">
+    <!-- Gráfico de Barras - Tempo por Projeto -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Tempo por Projeto</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoBarras" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfico de Pizza - Distribuição -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-pie-chart-fill"></i> Distribuição {{ dados_graficos.titulo_periodo }}</h6>
+                <small class="text-muted">{{ dados_graficos.total_periodo_horas }}h total</small>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoPizza" width="400" height="300"></canvas>
+                {% if not dados_graficos.pizza.labels %}
+                <div class="text-center text-muted mt-4">
+                    <i class="bi bi-info-circle"></i><br>
+                    Nenhum tempo registrado esta semana
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Gráfico de Linha - Evolução -->
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> 
+                    {% if dados_graficos.periodo == 'dia' %}
+                        Evolução de Hoje (por hora)
+                    {% elif dados_graficos.periodo == 'semana' %}
+                        Evolução dos Últimos 7 Dias
+                    {% else %}
+                        Evolução dos Últimos 30 Dias
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoLinha" width="600" height="300"></canvas>
+                {% if not dados_graficos.linha.datasets %}
+                <div class="text-center text-muted mt-4">
+                    <i class="bi bi-info-circle"></i><br>
+                    Nenhum dados dos últimos 7 dias
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Heatmap - Atividade por Hora -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock-fill"></i> Atividade por Hora</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoHeatmap" width="300" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Separador visual -->
+<hr class="my-5">
+
+<!-- Seção de Relatórios Detalhados -->
 
 <div class="row">
     <div class="col-md-8">
@@ -134,8 +244,351 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .heatmap-legend {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        font-size: 0.8rem;
+    }
+    .heatmap-hour {
+        text-align: center;
+        font-size: 0.7rem;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
+    // Dados dos gráficos passados do Django
+    const dadosGraficos = {{ dados_graficos_json|safe }};
+    
+    // Configurações gerais dos gráficos
+    Chart.defaults.responsive = true;
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.legend.display = true;
+    
+    // 1. Gráfico de Barras - Tempo por Projeto
+    function criarGraficoBarras() {
+        const ctx = document.getElementById('graficoBarras').getContext('2d');
+        
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: dadosGraficos.barras.labels,
+                datasets: [{
+                    label: `Horas (${dadosGraficos.titulo_periodo})`,
+                    data: dadosGraficos.barras.dados,
+                    backgroundColor: dadosGraficos.barras.cores.map(cor => cor + '80'),
+                    borderColor: dadosGraficos.barras.cores,
+                    borderWidth: 2,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Tempo Trabalhado - ${dadosGraficos.titulo_periodo}`
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'h';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y.toFixed(1) + ' horas';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // 2. Gráfico de Pizza - Distribuição
+    function criarGraficoPizza() {
+        const ctx = document.getElementById('graficoPizza').getContext('2d');
+        
+        if (dadosGraficos.pizza.labels.length === 0) {
+            return null;
+        }
+        
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: dadosGraficos.pizza.labels,
+                datasets: [{
+                    data: dadosGraficos.pizza.dados,
+                    backgroundColor: dadosGraficos.pizza.cores.map(cor => cor + 'CC'),
+                    borderColor: dadosGraficos.pizza.cores,
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const porcentagem = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed.toFixed(1) + 'h (' + porcentagem + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // 3. Gráfico de Linha - Evolução
+    function criarGraficoLinha() {
+        const ctx = document.getElementById('graficoLinha').getContext('2d');
+        
+        if (dadosGraficos.linha.datasets.length === 0) {
+            return null;
+        }
+        
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dadosGraficos.linha.labels,
+                datasets: dadosGraficos.linha.datasets
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Data'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Horas'
+                        },
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'h';
+                            }
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 4,
+                        hoverRadius: 6
+                    }
+                }
+            }
+        });
+    }
+    
+    // 4. Gráfico Heatmap - Atividade por Hora
+    function criarGraficoHeatmap() {
+        const ctx = document.getElementById('graficoHeatmap').getContext('2d');
+        
+        // Preparar dados para um gráfico de barras horizontal
+        const labels = [];
+        const dados = [];
+        const cores = [];
+        
+        // Agrupar por faixas de hora (manhã, tarde, noite)
+        const faixas = {
+            'Madrugada\n(0-5h)': [0, 1, 2, 3, 4, 5],
+            'Manhã\n(6-11h)': [6, 7, 8, 9, 10, 11],
+            'Tarde\n(12-17h)': [12, 13, 14, 15, 16, 17],
+            'Noite\n(18-23h)': [18, 19, 20, 21, 22, 23]
+        };
+        
+        const coresFaixas = ['#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+        let i = 0;
+        
+        for (const [faixa, horas] of Object.entries(faixas)) {
+            let totalFaixa = 0;
+            horas.forEach(hora => {
+                const dadoHora = dadosGraficos.heatmap.find(d => d.x === hora);
+                if (dadoHora) {
+                    totalFaixa += dadoHora.y;
+                }
+            });
+            
+            labels.push(faixa);
+            dados.push(totalFaixa);
+            cores.push(coresFaixas[i] + '80');
+            i++;
+        }
+        
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Horas Trabalhadas',
+                    data: dados,
+                    backgroundColor: cores,
+                    borderColor: coresFaixas,
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value + 'h';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Inicializar gráficos
+    let graficoBarras, graficoPizza, graficoLinha, graficoHeatmap;
+    
+    function inicializarGraficos() {
+        graficoBarras = criarGraficoBarras();
+        graficoPizza = criarGraficoPizza();
+        graficoLinha = criarGraficoLinha();
+        graficoHeatmap = criarGraficoHeatmap();
+    }
+    
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        inicializarGraficos();
+    });
+    
+    // Função para popular dados de teste
+    function popularDadosTeste() {
+        if (!confirm('Isso criará projetos e sessões de exemplo para demonstrar os gráficos. Continuar?')) {
+            return;
+        }
+        
+        fetch('/popular-dados-teste/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao popular dados de teste');
+        });
+    }
+    
+    // Função para limpar dados de teste
+    function limparDadosTeste() {
+        if (!confirm('Isso removerá TODOS os projetos e sessões marcados como dados de teste. Continuar?')) {
+            return;
+        }
+        
+        fetch('/limpar-dados-teste/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao limpar dados de teste');
+        });
+    }
+
+    function getCSRFToken() {
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
     function exportarRelatorio() {
         // TODO: Implementar exportação
         alert('Funcionalidade de exportação será implementada em breve!');

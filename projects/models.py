@@ -9,6 +9,7 @@ class Projeto(models.Model):
     descricao = models.TextField(blank=True)
     cor = models.CharField(max_length=7, default='#007bff', help_text='Cor em formato hex (ex: #007bff)')
     ativo = models.BooleanField(default=True)
+    dados_teste = models.BooleanField(default=False, help_text='Marca se este projeto foi criado como dados de teste')
     criado_em = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -61,6 +62,7 @@ class SessaoTempo(models.Model):
     inicio = models.DateTimeField(default=timezone.now)
     fim = models.DateTimeField(null=True, blank=True)
     descricao = models.TextField(blank=True, help_text='Opcional: descrição do que foi feito')
+    dados_teste = models.BooleanField(default=False, help_text='Marca se esta sessão foi criada como dados de teste')
     
     class Meta:
         ordering = ['-inicio']

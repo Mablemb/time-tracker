@@ -13,4 +13,6 @@ urlpatterns = [
     path('projetos/toggle/<int:projeto_id>/', views.toggle_projeto_status, name='toggle_projeto_status'),
     path('api/status/', views.status_sessao, name='status_sessao'),
     path('sessao/<int:sessao_id>/atualizar_fim/', views.atualizar_horario_fim, name='atualizar_horario_fim'),
+    path('popular-dados-teste/', views.popular_dados_teste, name='popular_dados_teste'),
+    path('limpar-dados-teste/', views.limpar_dados_teste, name='limpar_dados_teste'),
 ]

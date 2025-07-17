@@ -36,6 +36,19 @@ O TimeTracker é um sistema web desenvolvido em Django que permite controlar o t
   - 🧪 Testes específicos realizados
   - 📝 Documentação da implementação
 
+### 🔒 Segurança e Compatibilidade
+- **[SEGURANCA_DADOS_TESTE.md](SEGURANCA_DADOS_TESTE.md)** - Sistema seguro de dados de demonstração
+  - 🛡️ Correções de segurança implementadas
+  - 🔒 Proteções contra modificação de dados reais
+  - 🧪 Sistema de dados de teste seguro
+  - 📋 Boas práticas de segurança aplicadas
+
+- **[COMPATIBILIDADE_DADOS_EXISTENTES.md](COMPATIBILIDADE_DADOS_EXISTENTES.md)** - Garantias para usuários existentes
+  - ✅ Compatibilidade 100% com dados existentes
+  - 🔄 Processo de migração segura
+  - 🛡️ Proteções implementadas
+  - 📊 Verificações de integridade
+
 ### 📈 Histórico e Evolução
 - **[CHANGELOG.md](CHANGELOG.md)** - Registro de versões e mudanças
   - 📋 Histórico completo de desenvolvimento
